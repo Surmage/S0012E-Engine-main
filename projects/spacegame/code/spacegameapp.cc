@@ -177,6 +177,8 @@ SpaceGameApp::Run()
         lights[i] = Render::LightServer::CreatePointLight(translation, color, Core::RandomFloat() * 4.0f, 1.0f + (15 + Core::RandomFloat() * 10.0f));
     }
 
+    ModelId laserId = LoadModel("assets/space/laser.glb");
+
     SpaceShip ship;
     ship.model = LoadModel("assets/space/spaceship.glb");
 
