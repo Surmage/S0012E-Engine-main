@@ -5,6 +5,7 @@
 #include "render/physics.h"
 #include "render/debugrender.h"
 #include "render/particlesystem.h"
+#include "proto.h"
 
 using namespace Input;
 using namespace glm;
@@ -43,6 +44,7 @@ SpaceShip::SpaceShip()
 void
 SpaceShip::Update(float dt)
 {
+    Protocol::Player* player;
     Mouse* mouse = Input::GetDefaultMouse();
     Keyboard* kbd = Input::GetDefaultKeyboard();
 
@@ -115,7 +117,7 @@ SpaceShip::CheckCollisions()
         Physics::RaycastPayload payload = Physics::Raycast(position, dir, len);
 
         // debug draw collision rays
-        // Debug::DrawLine(pos, pos + dir * len, 1.0f, glm::vec4(0, 1, 0, 1), glm::vec4(0, 1, 0, 1), Debug::RenderMode::AlwaysOnTop);
+         Debug::DrawLine(pos, pos + dir * len, 1.0f, glm::vec4(0, 1, 0, 1), glm::vec4(0, 1, 0, 1), Debug::RenderMode::AlwaysOnTop);
 
         if (payload.hit)
         {
