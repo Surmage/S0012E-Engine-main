@@ -78,10 +78,10 @@ SpaceShip::Update(float dt)
     rotYSmooth = mix(rotYSmooth, rotY * rotationSpeed, dt * cameraSmoothFactor);
     rotZSmooth = mix(rotZSmooth, rotZ * rotationSpeed, dt * cameraSmoothFactor);
     quat localOrientation = quat(vec3(-rotYSmooth, rotXSmooth, rotZSmooth));
-    this->orientation = this->orientation * localOrientation;
+    this->direction = this->direction * localOrientation;
     this->rotationZ -= rotXSmooth;
     this->rotationZ = clamp(this->rotationZ, -45.0f, 45.0f);
-    mat4 T = translate(this->position) * (mat4)this->orientation;
+    mat4 T = translate(this->position) * (mat4)this->direction;
     this->transform = T * (mat4)quat(vec3(0, 0, rotationZ));
     this->rotationZ = mix(this->rotationZ, 0.0f, dt * cameraSmoothFactor);
 
@@ -108,7 +108,7 @@ SpaceShip::Update(float dt)
 bool
 SpaceShip::CheckCollisions()
 {
-    glm::mat4 rotation = (glm::mat4)orientation;
+    glm::mat4 rotation = (glm::mat4)direction;
     bool hit = false;
     for (int i = 0; i < 8; i++)
     {

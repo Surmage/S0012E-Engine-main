@@ -1,5 +1,5 @@
 #pragma once
-#include "render/model.h"
+#include "dead_reck.h"
 
 namespace Render
 {
@@ -9,15 +9,29 @@ namespace Render
 namespace Game
 {
 
+    struct Input
+    {
+        bool w, a, d, up, down, left, right, space, shift;
+        uint64 timeStamp;
+
+        Input();
+    };
+
     struct SpaceShip
     {
         SpaceShip();
+        ~SpaceShip();  
+
+        Input inputData;
 
         glm::vec3 position = glm::vec3(0);
-        glm::quat orientation = glm::identity<glm::quat>();
+        glm::quat direction = glm::identity<glm::quat>();
+        glm::vec3 linearVelocity = glm::vec3(0);
+
+        DeadReck deadReck;
+
         glm::vec3 camPos = glm::vec3(0, 1.0f, -2.0f);
         glm::mat4 transform = glm::mat4(1);
-        glm::vec3 linearVelocity = glm::vec3(0);
 
         const float normalSpeed = 1.0f;
         const float boostSpeed = normalSpeed * 2.0f;
@@ -32,14 +46,20 @@ namespace Game
         float rotYSmooth = 0;
         float rotZSmooth = 0;
 
-        Render::ModelId model;
         Render::ParticleEmitter* particleEmitterLeft;
         Render::ParticleEmitter* particleEmitterRight;
         float emitterOffset = -0.5f;
 
-        void Update(float dt);
+        uint32 id = 0;
+        bool isHit = false;
+        float timeSinceLastLaser = 0.f;
 
         bool CheckCollisions();
+        void SetInputData(const Input& data);
+        void SetThisCamera(float dt);
+        void ServerUpdate(float dt);
+        void ClientUpdate(float dt);
+        void SetServerData(const glm::vec3& serverPos, const glm::vec3& serverVel, const glm::vec3& serverAcc, const glm::quat& serverOri, bool hardReset, uint64 timeStamp);
 
         const glm::vec3 colliderEndPoints[8] = {
             glm::vec3(-1.10657, -0.480347, -0.346542),  // right wing
@@ -52,5 +72,4 @@ namespace Game
             glm::vec3(0.279064, -0.10917, -0.98846)   // right back
         };
     };
-
 }

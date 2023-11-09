@@ -15,14 +15,14 @@ namespace Game
 
 Laser::~Laser() {}
 
-float Laser::GetSecondsAlive(uint64 currentTimeMillis)
+float Laser::GetSecondsAlive(uint64 currentTime)
 {
-	return 0.001f * static_cast<float>(currentTimeMillis - startTime);
+	return 0.001f * static_cast<float>(currentTime - startTime);
 }
 
-glm::vec3 Laser::GetPosition(uint64 currentTimeMillis, float velocity)
+glm::vec3 Laser::GetPosition(uint64 currentTime, float velocity)
 {
-	return origin + direction * glm::vec3(0.f, 0.f, GetSecondsAlive(currentTimeMillis) * velocity);
+	return origin + direction * glm::vec3(0.f, 0.f, GetSecondsAlive(currentTime) * velocity);
 }
 
 glm::vec3 Laser::GetDirection()
@@ -30,9 +30,9 @@ glm::vec3 Laser::GetDirection()
 	return direction * glm::vec3(0.f, 0.f, 1.f);
 }
 
-glm::mat4 Laser::GetLocalToWorld(uint64 currentTimeMillis, float velocity)
+glm::mat4 Laser::GetLocalToWorld(uint64 currentTime, float velocity)
 {
-	glm::vec3 pos = GetPosition(currentTimeMillis, velocity);
+	glm::vec3 pos = GetPosition(currentTime, velocity);
 	return glm::translate(pos) * (glm::mat4)direction;
 }
 }

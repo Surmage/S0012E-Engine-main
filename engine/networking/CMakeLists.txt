@@ -3,8 +3,14 @@
 #--------------------------------------------------------------------------
 
 SET(files_networking
+	console.h
+	console.cc
+	dead_reck.h
+	dead_reck.cc
 	laser.h
 	laser.cc
+	network.h
+	network.cc
 	spaceship.h
 	spaceship.cc
 	)
