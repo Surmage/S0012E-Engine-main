@@ -318,18 +318,18 @@ void ServerApp::UpdateNetwork()
 
     this->server->Update();
 
-    Game::PeerData d;
-    while (this->server->PopDataStack(d))
+    Game::PeerData data;
+    while (this->server->PopDataStack(data))
     {
-        auto packet = Protocol::GetPacketWrapper(&d.data->front());
+        auto packet = Protocol::GetPacketWrapper(&data.data->front());
         Protocol::PacketType packetType = packet->packet_type();
         switch (packetType)
         {
         case Protocol::PacketType::PacketType_InputC2S:
-            this->HandleMsgInput(d.sender, packet);
+            this->HandleMsgInput(data.sender, packet);
             break;
         case Protocol::PacketType::PacketType_TextC2S:
-            this->HandleMsgText(d.sender, packet);
+            this->HandleMsgText(data.sender, packet);
             break;
         }
     }
@@ -433,7 +433,6 @@ void ServerApp::UpdateAndDrawLasers()
     }
 }
 
-
 //unpack messages from client
 
 void ServerApp::PackPlayer(Game::SpaceShip* spaceShip, Protocol::Player& p_player)
@@ -480,7 +479,7 @@ void ServerApp::HandleMsgText(ENetPeer* sender, const Protocol::PacketWrapper* p
 {
     const Protocol::TextC2S* inPacket = static_cast<const Protocol::TextC2S*>(packet->packet());
 
-    // print incomming text
+    // print incoming text
     std::string msg = "[MESSAGE] other: ";
     msg += inPacket->text()->c_str();
     this->console->AddOutput(msg);
@@ -513,7 +512,6 @@ void ServerApp::SpawnSpaceShip(ENetPeer* client)
     auto outPacket = Protocol::CreateSpawnPlayerS2C(builder, &p_player);
     auto packetWrapper = Protocol::CreatePacketWrapper(builder, Protocol::PacketType_SpawnPlayerS2C, outPacket.Union());
     builder.Finish(packetWrapper);
-    // exlude client, since it will receive everything in the gameState-message
     this->server->Broadcast(builder.GetBufferPointer(), builder.GetSize(), ENET_PACKET_FLAG_RELIABLE, client);
 }
 
