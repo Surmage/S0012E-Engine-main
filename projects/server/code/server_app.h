@@ -37,8 +37,8 @@ private:
 	// unpack messages from client
 	void PackPlayer(Game::SpaceShip* spaceShip, Protocol::Player& p_player);
 	void PackLaser(Game::Laser* laser, Protocol::Laser& p_laser);
-	void HandleMessage_Input(ENetPeer* sender, const Protocol::PacketWrapper* packet);
-	void HandleMessage_Text(ENetPeer* sender, const Protocol::PacketWrapper* packet);
+	void HandleMsgInput(ENetPeer* sender, const Protocol::PacketWrapper* packet);
+	void HandleMsgText(ENetPeer* sender, const Protocol::PacketWrapper* packet);
 
 	// operations that send data to the clients
 	void SpawnSpaceShip(ENetPeer* client);
@@ -53,7 +53,7 @@ private:
 	Display::Window* window;
 	Game::Console* console;
 	Game::Server* server;
-	uint64 currentTimeMillis;
+	uint64 currentTime;
 
 	std::vector<std::tuple<Render::ModelId, Physics::ColliderId, glm::mat4>> asteroids;
 
@@ -66,7 +66,7 @@ private:
 	std::vector<Game::Laser*> lasers;
 	Render::ModelId laserModel;
 	uint32 nextLaserId;
-	uint64 laserMaxTimeMillis;
+	uint64 laserMaxTime;
 	float laserSpeed;
 	float laserCooldown;
 };

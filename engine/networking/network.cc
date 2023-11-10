@@ -106,14 +106,14 @@ namespace Game
 	Server::~Server()
 	{}
 
-	bool Server::Init(enet_uint16 port, std::function<void(ENetPeer*)> _onClientConnect, std::function<void(ENetPeer*)> _onClientDisconnect)
+	bool Server::Init(const char* serverIP, enet_uint16 port, std::function<void(ENetPeer*)> _onClientConnect, std::function<void(ENetPeer*)> _onClientDisconnect)
 	{
 		onClientConnect = _onClientConnect;
 		onClientDisconnect = _onClientDisconnect;
 
 
 		ENetAddress address;
-		enet_address_set_host(&address, "localhost");
+		enet_address_set_host(&address, serverIP);
 		address.port = port;
 
 		host = enet_host_create(&address, 32, 2, 0, 0);
@@ -193,12 +193,12 @@ namespace Game
 		return true;
 	}
 
-	bool Client::TryConnecting(enet_uint16 port)
+	bool Client::TryConnecting(const char* serverIP, enet_uint16 port)
 	{
 		ENetAddress address;
 		ENetEvent event;
 
-		enet_address_set_host(&address, "localhost");
+		enet_address_set_host(&address, serverIP);
 		address.port = port;
 
 		server = enet_host_connect(host, &address, 2, 0);

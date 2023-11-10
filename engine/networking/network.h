@@ -60,7 +60,7 @@ namespace Game
 		Server();
 		~Server();
 
-		bool Init(enet_uint16 port, std::function<void(ENetPeer*)> _onClientConnect, std::function<void(ENetPeer*)> _onClientDisconnect);
+		bool Init(const char* serverIP, enet_uint16 port, std::function<void(ENetPeer*)> _onClientConnect, std::function<void(ENetPeer*)> _onClientDisconnect);
 		void Broadcast(void* data, size_t byteSize, ENetPacketFlag packetFlag, ENetPeer* exlude = nullptr);
 		
 	};
@@ -80,7 +80,7 @@ namespace Game
 		~Client();
 
 		bool Init(std::function<void(ENetPeer*)> _onServerConnect, std::function<void(ENetPeer*)> _onServerDisconnect);
-		bool TryConnecting(enet_uint16 port);
+		bool TryConnecting(const char* serverIP, enet_uint16 port);
 		
 	};
 }

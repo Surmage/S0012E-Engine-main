@@ -77,8 +77,8 @@ SpaceShip::Update(float dt)
     rotXSmooth = mix(rotXSmooth, rotX * rotationSpeed, dt * cameraSmoothFactor);
     rotYSmooth = mix(rotYSmooth, rotY * rotationSpeed, dt * cameraSmoothFactor);
     rotZSmooth = mix(rotZSmooth, rotZ * rotationSpeed, dt * cameraSmoothFactor);
-    quat localOrientation = quat(vec3(-rotYSmooth, rotXSmooth, rotZSmooth));
-    this->direction = this->direction * localOrientation;
+    quat localDirection = quat(vec3(-rotYSmooth, rotXSmooth, rotZSmooth));
+    this->direction = this->direction * localDirection;
     this->rotationZ -= rotXSmooth;
     this->rotationZ = clamp(this->rotationZ, -45.0f, 45.0f);
     mat4 T = translate(this->position) * (mat4)this->direction;

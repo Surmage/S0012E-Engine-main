@@ -10,18 +10,12 @@
 #include "core/random.h"
 #include <chrono>
 
-bool isNumber(const std::string& s)
-{
-    return !s.empty() && std::find_if(s.begin(),
-        s.end(), [](unsigned char c) { return !std::isdigit(c); }) == s.end();
-}
-
 ClientApp::ClientApp() :
     window(nullptr),
     console(nullptr),
     client(nullptr),
-    currentTimeMillis(0),
-    timeDiffMillis(0),
+    currentTime(0),
+    timeDiff(0),
     hasReceivedSpaceShip(false),
     controlledShipId(0),
     controlledShip(nullptr),
@@ -70,14 +64,10 @@ bool ClientApp::Open()
     this->console = new Game::Console("Client", 128, 128, 10);
     this->console->SetCommand("client", [this](const std::string& arg)
         {
-        if (!isNumber(arg)) {
-            printf("\n[ERROR] Invalid port.\n");
-            return;
-        }
         if (this->client != nullptr)
         {
             if(this->client->server == nullptr)
-                this->client->TryConnecting(std::stoi(arg));
+                this->client->TryConnecting(arg.c_str(), 1234);
 
             return;
         }
@@ -94,7 +84,7 @@ bool ClientApp::Open()
 
         this->client = new Game::Client();
         if (!this->client->Init(connected, disconnected) ||
-            !this->client->TryConnecting(std::stoi(arg)))
+            !this->client->TryConnecting(arg.c_str(), 1234))
         {
             delete this->client;
             this->client = nullptr;
@@ -195,7 +185,7 @@ bool ClientApp::Open()
     Render::RenderDevice::SetSkybox(skyboxId);
 
     // setup lights
-    const int numLights = 40;
+    const int numLights = 20;
     for (int i = 0; i < numLights; i++)
     {
         glm::vec3 translation = glm::vec3(
@@ -227,7 +217,7 @@ void ClientApp::Run()
         auto timeStart = std::chrono::steady_clock::now();
         auto now = std::chrono::system_clock::now();
         auto duration = now.time_since_epoch();
-        this->currentTimeMillis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+        this->currentTime = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
 
         glClear(GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
@@ -310,7 +300,7 @@ void ClientApp::OnServerDisconnect()
 }
 
 
-// -- update functions --
+//update functions
 
 void ClientApp::RenderUI()
 {
@@ -339,7 +329,7 @@ void ClientApp::UpdateNetwork()
     // get input data and send it to server
     unsigned short inputData = this->CompressInputData(this->GetInputData());
     flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
-    auto outPacket = Protocol::CreateInputC2S(builder, this->currentTimeMillis, inputData);
+    auto outPacket = Protocol::CreateInputC2S(builder, this->currentTime, inputData);
     auto packetWrapper = Protocol::CreatePacketWrapper(builder, Protocol::PacketType_InputC2S, outPacket.Union());
     builder.Finish(packetWrapper);
     this->client->SendData(builder.GetBufferPointer(), builder.GetSize(), this->client->server, ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT);
@@ -351,37 +341,36 @@ void ClientApp::UpdateNetwork()
     Game::PeerData d;
     while (this->client->PopDataStack(d))
     {
-        // TODO: parse incomming data and call the correct functions on that data
         auto packet = Protocol::GetPacketWrapper(&d.data->front());
         Protocol::PacketType packetType = packet->packet_type();
         switch (packetType)
         {
         case Protocol::PacketType::PacketType_ClientConnectS2C:
-            this->HandleMessage_ClientConnect(packet);
+            this->HandleMsgClientConnect(packet);
             break;
         case Protocol::PacketType::PacketType_GameStateS2C:
-            this->HandleMessage_GameState(packet);
+            this->HandleMsgGameState(packet);
             break;
         case Protocol::PacketType::PacketType_SpawnPlayerS2C:
-            this->HandleMessage_SpawnPlayer(packet);
+            this->HandleMsgSpawnPlayer(packet);
             break;
         case Protocol::PacketType::PacketType_DespawnPlayerS2C:
-            this->HandleMessage_DespawnPlayer(packet);
+            this->HandleMsgDespawnPlayer(packet);
             break;
         case Protocol::PacketType::PacketType_UpdatePlayerS2C:
-            this->HandleMessage_UpdatePlayer(packet);
+            this->HandleMsgUpdatePlayer(packet);
             break;
         case Protocol::PacketType::PacketType_TeleportPlayerS2C:
-            this->HandleMessage_TeleportPlayer(packet);
+            this->HandleMsgTeleportPlayer(packet);
             break;
         case Protocol::PacketType::PacketType_SpawnLaserS2C:
-            this->HandleMessage_SpawnLaser(packet);
+            this->HandleMsgSpawnLaser(packet);
             break;
         case Protocol::PacketType::PacketType_DespawnLaserS2C:
-            this->HandleMessage_DespawnLaser(packet);
+            this->HandleMsgDespawnLaser(packet);
             break;
         case Protocol::PacketType::PacketType_TextS2C:
-            this->HandleMessage_Text(packet);
+            this->HandleMsgText(packet);
             break;
         }
     }
@@ -410,18 +399,18 @@ void ClientApp::UpdateAndDrawLasers()
 {
     for (int i = (int)this->lasers.size()-1; i>=0; i--)
     {
-        if (currentTimeMillis > this->lasers[i]->endTime)
+        if (currentTime > this->lasers[i]->endTime)
         {
             this->DespawnLaserDirect(i);
             continue;
         }
 
-        Render::RenderDevice::Draw(this->laserModel, this->lasers[i]->GetLocalToWorld(this->currentTimeMillis, this->laserSpeed));
+        Render::RenderDevice::Draw(this->laserModel, this->lasers[i]->GetLocalToWorld(this->currentTime, this->laserSpeed));
     }
 }
 
 
-// -- unpack messages from server --
+//unpack messages from server
 
 void ClientApp::UnpackPlayer(const Protocol::Player* player, glm::vec3& position, glm::vec3& velocity, glm::vec3& acceleration, glm::quat& orientation, uint32& id)
 {
@@ -449,17 +438,17 @@ void ClientApp::UnpackLaser(const Protocol::Laser* laser, glm::vec3& origin, glm
     orientation = glm::quat(p_dir.w(), p_dir.x(), p_dir.y(), p_dir.z());
 }
 
-void ClientApp::HandleMessage_ClientConnect(const Protocol::PacketWrapper* packet)
+void ClientApp::HandleMsgClientConnect(const Protocol::PacketWrapper* packet)
 {
     const Protocol::ClientConnectS2C* inPacket = static_cast<const Protocol::ClientConnectS2C*>(packet->packet());
     this->controlledShipId = inPacket->uuid();
     uint64 serverTime = inPacket->time();
-    this->timeDiffMillis = this->currentTimeMillis - serverTime;
+    this->timeDiff = this->currentTime - serverTime;
 
     this->hasReceivedSpaceShip = true;
 }
 
-void ClientApp::HandleMessage_GameState(const Protocol::PacketWrapper* packet) 
+void ClientApp::HandleMsgGameState(const Protocol::PacketWrapper* packet) 
 {
     const Protocol::GameStateS2C* inPacket = static_cast<const Protocol::GameStateS2C*>(packet->packet());
     auto p_players = inPacket->players();
@@ -505,7 +494,7 @@ void ClientApp::HandleMessage_GameState(const Protocol::PacketWrapper* packet)
     }
 }
 
-void ClientApp::HandleMessage_SpawnPlayer(const Protocol::PacketWrapper* packet)
+void ClientApp::HandleMsgSpawnPlayer(const Protocol::PacketWrapper* packet)
 {
     const Protocol::SpawnPlayerS2C* inPacket = static_cast<const Protocol::SpawnPlayerS2C*>(packet->packet());
     auto p_player = inPacket->player();
@@ -523,13 +512,13 @@ void ClientApp::HandleMessage_SpawnPlayer(const Protocol::PacketWrapper* packet)
     }
 }
 
-void ClientApp::HandleMessage_DespawnPlayer(const Protocol::PacketWrapper* packet)
+void ClientApp::HandleMsgDespawnPlayer(const Protocol::PacketWrapper* packet)
 {
     const Protocol::DespawnPlayerS2C* inPacket = static_cast<const Protocol::DespawnPlayerS2C*>(packet->packet());
     this->DespawnSpaceShip(inPacket->uuid());
 }
 
-void ClientApp::HandleMessage_UpdatePlayer(const Protocol::PacketWrapper* packet)
+void ClientApp::HandleMsgUpdatePlayer(const Protocol::PacketWrapper* packet)
 {
     const Protocol::UpdatePlayerS2C* inPacket = static_cast<const Protocol::UpdatePlayerS2C*>(packet->packet());
     auto p_player = inPacket->player();
@@ -543,7 +532,7 @@ void ClientApp::HandleMessage_UpdatePlayer(const Protocol::PacketWrapper* packet
     this->UpdateSpaceShipData(position, velocity, acceleration, orientation, id, false, inPacket->time());
 }
 
-void ClientApp::HandleMessage_TeleportPlayer(const Protocol::PacketWrapper* packet)
+void ClientApp::HandleMsgTeleportPlayer(const Protocol::PacketWrapper* packet)
 {
     const Protocol::TeleportPlayerS2C* inPacket = static_cast<const Protocol::TeleportPlayerS2C*>(packet->packet());
     auto p_player = inPacket->player();
@@ -557,7 +546,7 @@ void ClientApp::HandleMessage_TeleportPlayer(const Protocol::PacketWrapper* pack
     this->UpdateSpaceShipData(position, velocity, acceleration, orientation, id, true, inPacket->time());
 }
 
-void ClientApp::HandleMessage_SpawnLaser(const Protocol::PacketWrapper* packet)
+void ClientApp::HandleMsgSpawnLaser(const Protocol::PacketWrapper* packet)
 {
     const Protocol::SpawnLaserS2C* inPacket = static_cast<const Protocol::SpawnLaserS2C*>(packet->packet());
     auto p_laser = inPacket->laser();
@@ -575,13 +564,13 @@ void ClientApp::HandleMessage_SpawnLaser(const Protocol::PacketWrapper* packet)
     }
 }
 
-void ClientApp::HandleMessage_DespawnLaser(const Protocol::PacketWrapper* packet)
+void ClientApp::HandleMsgDespawnLaser(const Protocol::PacketWrapper* packet)
 {
     const Protocol::DespawnLaserS2C* inPacket = static_cast<const Protocol::DespawnLaserS2C*>(packet->packet());
     this->DespawnLaser(inPacket->uuid());
 }
 
-void ClientApp::HandleMessage_Text(const Protocol::PacketWrapper* packet)
+void ClientApp::HandleMsgText(const Protocol::PacketWrapper* packet)
 {
     const Protocol::TextS2C* inPacket = static_cast<const Protocol::TextS2C*>(packet->packet());
     std::string msg = "[MESSAGE] other: ";
@@ -590,7 +579,7 @@ void ClientApp::HandleMessage_Text(const Protocol::PacketWrapper* packet)
 }
 
 
-// -- utility functions --
+//utility functions
 
 unsigned short ClientApp::CompressInputData(const Game::Input& data)
 {
@@ -612,7 +601,7 @@ Game::Input ClientApp::GetInputData()
     data.a = kbd->held[Input::Key::A];
     data.d = kbd->held[Input::Key::D];
     data.space = kbd->held[Input::Key::Space];
-    data.timeStamp = this->currentTimeMillis;
+    data.timeStamp = this->currentTime;
 
     return data;
 }
@@ -634,7 +623,7 @@ size_t ClientApp::LaserIndex(uint32 laserId)
 }
 
 
-// -- operations in response to server messages
+//operations in response to server messages
 
 void ClientApp::SpawnSpaceShip(const glm::vec3& position, const glm::quat& orientation, const glm::vec3& velocity, uint32 spaceShipId)
 {
@@ -666,9 +655,9 @@ void ClientApp::UpdateSpaceShipData(const glm::vec3& position, const glm::vec3& 
 }
 
 
-void ClientApp::SpawnLaser(const glm::vec3& origin, const glm::quat& orientation, uint32 spaceShipId, uint64 spawnTimeMillis, uint64 despawnTimeMillis, uint32 laserId)
+void ClientApp::SpawnLaser(const glm::vec3& origin, const glm::quat& orientation, uint32 spaceShipId, uint64 spawnTime, uint64 despawnTime, uint32 laserId)
 {
-    Game::Laser* laser = new Game::Laser(laserId, spawnTimeMillis + this->timeDiffMillis, despawnTimeMillis + this->timeDiffMillis, origin, orientation, spaceShipId);
+    Game::Laser* laser = new Game::Laser(laserId, spawnTime + this->timeDiff, despawnTime + this->timeDiff, origin, orientation, spaceShipId);
     this->lasers.push_back(laser);
 }
 
