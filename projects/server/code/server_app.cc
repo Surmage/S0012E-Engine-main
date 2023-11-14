@@ -68,6 +68,9 @@ bool ServerApp::Open()
         if (this->server != nullptr)
             return;
 
+        std::string argIP;
+        enet_uint16 argPort;
+        Game::splitStringSpace(arg, argIP, argPort);
         auto connected = [this](ENetPeer* client)
         {
             this->OnClientConnect(client);
@@ -79,7 +82,7 @@ bool ServerApp::Open()
         };
 
         this->server = new Game::Server();
-        if (!this->server->Init(arg.c_str(), 1234, connected, disconnected))
+        if (!this->server->Init(argIP.c_str(), argPort, connected, disconnected))
         {
             delete this->server;
             this->server = nullptr;

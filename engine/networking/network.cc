@@ -3,6 +3,30 @@
 
 namespace Game
 {
+	bool isNumber(const std::string& s)
+	{
+		std::string::const_iterator it = s.begin();
+		while (it != s.end() && std::isdigit(*it)) ++it;
+		return !s.empty() && it == s.end();
+	}
+
+	void splitStringSpace(const std::string& arg, std::string& IP, enet_uint16& port) {
+		//Check if arg is empty
+		if (arg == "") {
+			port = 1234;
+			return;
+		}
+		IP = arg.substr(0, arg.find(" ")); //Split on space
+
+		std::string secondHalf = arg.substr(arg.find(" ") + 1, -1);
+		if (isNumber(secondHalf))
+			port = stoi(secondHalf);
+		else
+		{
+			port = 1234;
+			printf("\n[ERROR] Invalid input port. Used 1234 instead.\n");
+		}
+	}
 
 #pragma region data
 

@@ -8,6 +8,8 @@
 
 namespace Game
 {
+	void splitStringSpace(const std::string& arg, std::string& IP, enet_uint16& port);
+
 	struct PeerData
 	{
 		ENetPeer* sender;

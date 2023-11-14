@@ -64,10 +64,13 @@ bool ClientApp::Open()
     this->console = new Game::Console("Client", 128, 128, 10);
     this->console->SetCommand("client", [this](const std::string& arg)
         {
+        std::string argIP;
+        enet_uint16 argPort;
+        Game::splitStringSpace(arg, argIP, argPort);
         if (this->client != nullptr)
         {
             if(this->client->server == nullptr)
-                this->client->TryConnecting(arg.c_str(), 1234);
+                this->client->TryConnecting(argIP.c_str(), argPort);
 
             return;
         }
@@ -84,7 +87,7 @@ bool ClientApp::Open()
 
         this->client = new Game::Client();
         if (!this->client->Init(connected, disconnected) ||
-            !this->client->TryConnecting(arg.c_str(), 1234))
+            !this->client->TryConnecting(argIP.c_str(), argPort))
         {
             delete this->client;
             this->client = nullptr;
