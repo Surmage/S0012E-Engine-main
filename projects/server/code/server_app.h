@@ -31,8 +31,8 @@ private:
 	// update functions
 	void RenderUI();
 	void UpdateNetwork();
-	void UpdateAndDrawSpaceShips(float deltaTime);
-	void UpdateAndDrawLasers();
+	void UpdateSpaceShips(float deltaTime);
+	void UpdateLasers();
 
 	// unpack messages from client
 	void PackPlayer(Game::SpaceShip* spaceShip, Protocol::Player& p_player);
@@ -40,14 +40,14 @@ private:
 	void HandleMsgInput(ENetPeer* sender, const Protocol::PacketWrapper* packet);
 	void HandleMsgText(ENetPeer* sender, const Protocol::PacketWrapper* packet);
 
-	// operations that send data to the clients
+	// methods that send data to the clients
 	void SpawnSpaceShip(ENetPeer* client);
 	void UpdateSpaceShipData(ENetPeer* client);
 	void DespawnSpaceShip(ENetPeer* client);
 	void RespawnSpaceShip(ENetPeer* client);
 	void SendGameState(ENetPeer* client);
 	void SendClientConnect(ENetPeer* client);
-	void SpawnLaser(const glm::vec3& origin, const glm::quat& orientation, uint32 spaceShipId, uint64 currentTimeMillis);
+	void SpawnLaser(const glm::vec3& origin, const glm::quat& direction, uint32 spaceShipId, uint64 currentTimeMillis);
 	void DespawnLaser(size_t index);
 
 	Display::Window* window;

@@ -37,7 +37,7 @@ void DeadReck::SetServerData(const Body& newServerData, bool hardReset, uint64 _
 	serverStart = newServerData;
 }
 
-DeadReck::Body DeadReck::Interpolate(float deltaTime)
+DeadReck::Body DeadReck::Interpolate(float deltaTime) //Currently used for client update in spaceship
 {
 	timeSinceLastUpdate += deltaTime;
 	timeSinceLastUpdate = timeSinceLastUpdate > serverDeltaTime ? serverDeltaTime : timeSinceLastUpdate;

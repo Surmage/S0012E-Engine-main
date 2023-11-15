@@ -235,7 +235,7 @@ void ClientApp::Run()
         }
         else
         {
-            this->TryGetControlledSpaceShip();
+            this->GetControlledSpaceShip();
         }
 
         if (kbd->pressed[Input::Key::Code::End])
@@ -243,8 +243,8 @@ void ClientApp::Run()
             Render::ShaderResource::ReloadShaders();
         }
 
-        this->UpdateAndDrawLasers();
-        this->UpdateAndDrawSpaceShips(dt);
+        this->UpdateLasers();
+        this->UpdateSpaceShips(dt);
 
         // Store all drawcalls in the render device
         for (auto const& asteroid : this->asteroids)
@@ -379,7 +379,7 @@ void ClientApp::UpdateNetwork()
     }
 }
 
-void ClientApp::TryGetControlledSpaceShip()
+void ClientApp::GetControlledSpaceShip()
 {
     if (!this->hasReceivedSpaceShip)
         return;
@@ -389,7 +389,7 @@ void ClientApp::TryGetControlledSpaceShip()
         this->controlledShip = spaceShips[index];
 }
 
-void ClientApp::UpdateAndDrawSpaceShips(float deltaTime)
+void ClientApp::UpdateSpaceShips(float deltaTime)
 {
     for (size_t i = 0; i < this->spaceShips.size(); i++)
     {
@@ -398,7 +398,7 @@ void ClientApp::UpdateAndDrawSpaceShips(float deltaTime)
     }
 }
 
-void ClientApp::UpdateAndDrawLasers()
+void ClientApp::UpdateLasers()
 {
     for (int i = (int)this->lasers.size()-1; i>=0; i--)
     {
@@ -475,7 +475,7 @@ void ClientApp::HandleMsgGameState(const Protocol::PacketWrapper* packet)
         // space ship is new and must be spawned
         else
         {
-            this->SpawnSpaceShip(position, orientation, velocity, id);
+            this->SpawnSpaceShip(position, id);
         }
     }
 
@@ -484,8 +484,7 @@ void ClientApp::HandleMsgGameState(const Protocol::PacketWrapper* packet)
         auto p_laser = p_lasers->operator[](i);
         glm::vec3 origin;
         glm::quat orientation;
-        uint64 spawnTime;
-        uint64 despawnTime;
+        uint64 spawnTime, despawnTime;
         uint32 id;
         this->UnpackLaser(p_laser, origin, orientation, spawnTime, despawnTime, id);
 
@@ -511,7 +510,7 @@ void ClientApp::HandleMsgSpawnPlayer(const Protocol::PacketWrapper* packet)
     // space ship is new and must be spawned
     if (this->SpaceShipIndex(id) >= this->spaceShips.size())
     {
-        this->SpawnSpaceShip(position, orientation, velocity, id);
+        this->SpawnSpaceShip(position, id);
     }
 }
 
@@ -525,28 +524,24 @@ void ClientApp::HandleMsgUpdatePlayer(const Protocol::PacketWrapper* packet)
 {
     const Protocol::UpdatePlayerS2C* inPacket = static_cast<const Protocol::UpdatePlayerS2C*>(packet->packet());
     auto p_player = inPacket->player();
-    glm::vec3 position;
-    glm::vec3 velocity;
-    glm::vec3 acceleration;
-    glm::quat orientation;
+    glm::vec3 position, velocity, acceleration;
+    glm::quat direction;
     uint32 id;
-    this->UnpackPlayer(p_player, position, velocity, acceleration, orientation, id);
+    this->UnpackPlayer(p_player, position, velocity, acceleration, direction, id);
 
-    this->UpdateSpaceShipData(position, velocity, acceleration, orientation, id, false, inPacket->time());
+    this->UpdateSpaceShipData(position, velocity, acceleration, direction, id, false, inPacket->time());
 }
 
 void ClientApp::HandleMsgTeleportPlayer(const Protocol::PacketWrapper* packet)
 {
     const Protocol::TeleportPlayerS2C* inPacket = static_cast<const Protocol::TeleportPlayerS2C*>(packet->packet());
     auto p_player = inPacket->player();
-    glm::vec3 position;
-    glm::vec3 velocity;
-    glm::vec3 acceleration;
-    glm::quat orientation;
+    glm::vec3 position, velocity, acceleration;
+    glm::quat direction;
     uint32 id;
-    this->UnpackPlayer(p_player, position, velocity, acceleration, orientation, id);
+    this->UnpackPlayer(p_player, position, velocity, acceleration, direction, id);
 
-    this->UpdateSpaceShipData(position, velocity, acceleration, orientation, id, true, inPacket->time());
+    this->UpdateSpaceShipData(position, velocity, acceleration, direction, id, true, inPacket->time());
 }
 
 void ClientApp::HandleMsgSpawnLaser(const Protocol::PacketWrapper* packet)
@@ -554,16 +549,15 @@ void ClientApp::HandleMsgSpawnLaser(const Protocol::PacketWrapper* packet)
     const Protocol::SpawnLaserS2C* inPacket = static_cast<const Protocol::SpawnLaserS2C*>(packet->packet());
     auto p_laser = inPacket->laser();
     glm::vec3 origin;
-    glm::quat orientation;
-    uint64 spawnTime;
-    uint64 despawnTime;
+    glm::quat direction;
+    uint64 spawnTime, despawnTime;
     uint32 id;
-    this->UnpackLaser(p_laser, origin, orientation, spawnTime, despawnTime, id);
+    this->UnpackLaser(p_laser, origin, direction, spawnTime, despawnTime, id);
 
     // laser is new and must be spawned
     if (this->LaserIndex(id) >= this->lasers.size())
     {
-        this->SpawnLaser(origin, orientation, 0, spawnTime, despawnTime, id);
+        this->SpawnLaser(origin, direction, 0, spawnTime, despawnTime, id);
     }
 }
 
@@ -625,10 +619,9 @@ size_t ClientApp::LaserIndex(uint32 laserId)
     return index;
 }
 
+//methods in response to server messages
 
-//operations in response to server messages
-
-void ClientApp::SpawnSpaceShip(const glm::vec3& position, const glm::quat& orientation, const glm::vec3& velocity, uint32 spaceShipId)
+void ClientApp::SpawnSpaceShip(const glm::vec3& position, uint32 spaceShipId)
 {
     Game::SpaceShip* spaceShip = new Game::SpaceShip();
     spaceShip->id = spaceShipId;
@@ -647,20 +640,20 @@ void ClientApp::DespawnSpaceShip(uint32 spaceShipId)
     this->spaceShips.erase(this->spaceShips.begin() + index);
 }
 
-void ClientApp::UpdateSpaceShipData(const glm::vec3& position, const glm::vec3& velocity, const glm::vec3& acceleration, const glm::quat& orientation, uint32 spaceShipId, bool hardReset, uint64 timeStamp)
+void ClientApp::UpdateSpaceShipData(const glm::vec3& position, const glm::vec3& velocity, const glm::vec3& acceleration, const glm::quat& direction, uint32 spaceShipId, bool hardReset, uint64 timeStamp)
 {
     size_t index = this->SpaceShipIndex(spaceShipId);
 
     if (index >= this->spaceShips.size())
         return;
 
-    this->spaceShips[index]->SetServerData(position, velocity, acceleration, orientation, hardReset, timeStamp);
+    this->spaceShips[index]->SetServerData(position, velocity, acceleration, direction, hardReset, timeStamp);
 }
 
 
-void ClientApp::SpawnLaser(const glm::vec3& origin, const glm::quat& orientation, uint32 spaceShipId, uint64 spawnTime, uint64 despawnTime, uint32 laserId)
+void ClientApp::SpawnLaser(const glm::vec3& origin, const glm::quat& direction, uint32 spaceShipId, uint64 spawnTime, uint64 despawnTime, uint32 laserId)
 {
-    Game::Laser* laser = new Game::Laser(laserId, spawnTime + this->timeDiff, despawnTime + this->timeDiff, origin, orientation, spaceShipId);
+    Game::Laser* laser = new Game::Laser(laserId, spawnTime + this->timeDiff, despawnTime + this->timeDiff, origin, direction, spaceShipId);
     this->lasers.push_back(laser);
 }
 

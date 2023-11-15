@@ -227,8 +227,8 @@ void ServerApp::Run()
 
         this->window->Update();
 
-        this->UpdateAndDrawLasers();
-        this->UpdateAndDrawSpaceShips(dt);
+        this->UpdateLasers();
+        this->UpdateSpaceShips(dt);
         this->UpdateNetwork();
 
         if (kbd->pressed[Input::Key::Code::End])
@@ -338,7 +338,7 @@ void ServerApp::UpdateNetwork()
     }
 }
 
-void ServerApp::UpdateAndDrawSpaceShips(float deltaTime)
+void ServerApp::UpdateSpaceShips(float deltaTime)
 {
     for (auto& spaceShip : this->spaceShips)
     {
@@ -358,29 +358,27 @@ void ServerApp::UpdateAndDrawSpaceShips(float deltaTime)
             this->RespawnSpaceShip(spaceShip.first);
             continue;
         }
-        else
+        // check collisions with other space ships
+        for (auto& otherShip : this->spaceShips)
         {
-            // check collisions with other space ships
-            for (auto& otherShip : this->spaceShips)
-            {
-                if (otherShip.second == spaceShip.second)
-                    continue;
-
-                glm::vec3 diff = otherShip.second->position - spaceShip.second->position;
-                if (glm::dot(diff, diff) < this->spaceShipCollisionRadiusSquared)
-                {
-                    spaceShip.second->isHit = true;
-                    otherShip.second->isHit = true;
-                }
-            }
-
-            // if a new collision is detected => respawn
-            if (spaceShip.second->isHit)
-            {
-                this->RespawnSpaceShip(spaceShip.first);
+            if (otherShip.second == spaceShip.second)
                 continue;
+
+            glm::vec3 diff = otherShip.second->position - spaceShip.second->position;
+            if (glm::dot(diff, diff) < this->spaceShipCollisionRadiusSquared)
+            {
+                spaceShip.second->isHit = true;
+                otherShip.second->isHit = true;
             }
         }
+
+        // respawn if hit
+        if (spaceShip.second->isHit)
+        {
+            this->RespawnSpaceShip(spaceShip.first);
+            continue;
+        }
+        
 
         spaceShip.second->ServerUpdate(deltaTime);
         this->UpdateSpaceShipData(spaceShip.first);
@@ -389,9 +387,10 @@ void ServerApp::UpdateAndDrawSpaceShips(float deltaTime)
     }
 }
 
-void ServerApp::UpdateAndDrawLasers()
+void ServerApp::UpdateLasers()
 {
-    for (int i = (int)this->lasers.size() - 1; i >= 0; i--)
+    // iterate over lasers in reverse order
+    for (int i = static_cast<int>(this->lasers.size()) - 1; i >= 0; i--)
     {
         // check timeout
         if (currentTime > this->lasers[i]->endTime)
@@ -463,6 +462,7 @@ void ServerApp::HandleMsgInput(ENetPeer* sender, const Protocol::PacketWrapper* 
 
     unsigned short inputData = inPacket->bitmap();
 
+    //Assign data keys to correspanding bitmap value from protocol
     Game::Input data;
     data.w = inputData & 1;
     data.a = inputData & 2;
@@ -487,7 +487,7 @@ void ServerApp::HandleMsgText(ENetPeer* sender, const Protocol::PacketWrapper* p
     msg += inPacket->text()->c_str();
     this->console->AddOutput(msg);
 
-    // send text to all others (exluding sender)
+    // send text to all others
     flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
     auto outPacket = Protocol::CreateTextS2CDirect(builder, inPacket->text()->c_str());
     auto packetWrapper = Protocol::CreatePacketWrapper(builder, Protocol::PacketType_TextS2C, outPacket.Union());
@@ -496,7 +496,7 @@ void ServerApp::HandleMsgText(ENetPeer* sender, const Protocol::PacketWrapper* p
 }
 
 
-//operations that send data to the clients 
+//methods that send data to the clients 
 
 void ServerApp::SpawnSpaceShip(ENetPeer* client)
 {
@@ -549,15 +549,18 @@ void ServerApp::DespawnSpaceShip(ENetPeer* client)
 void ServerApp::RespawnSpaceShip(ENetPeer* client)
 {
     static size_t spawnIndex = 16;
+    //Xor operations by bits, for pseudorandom generation
     spawnIndex ^= (spawnIndex << 13);
     spawnIndex ^= (spawnIndex >> 17);
     spawnIndex ^= (spawnIndex << 5);
+    //This XORs the original value of spawnIndex with the result of the left shift
+    //and assigns the result back to spawnIndex
 
     Game::SpaceShip* spaceShip = this->spaceShips[client];
-    spaceShip->isHit = false;
     spaceShip->position = this->spawnPoints[spawnIndex % 32];
-    spaceShip->direction = glm::quatLookAt(glm::normalize(spaceShip->position), glm::vec3(0.f, 1.f, 0.f));
     spaceShip->linearVelocity = glm::vec3(0.f);
+    spaceShip->direction = glm::quatLookAt(glm::normalize(spaceShip->position), glm::vec3(0.f, 1.f, 0.f));
+    spaceShip->isHit = false;
     this->nextSpaceShipId++;
 
     // send message to others
@@ -606,9 +609,9 @@ void ServerApp::SendClientConnect(ENetPeer* client)
     this->server->SendData(builder.GetBufferPointer(), builder.GetSize(), client, ENET_PACKET_FLAG_RELIABLE);
 }
 
-void ServerApp::SpawnLaser(const glm::vec3& origin, const glm::quat& orientation, uint32 spaceShipId, uint64 currentTimeMillis)
+void ServerApp::SpawnLaser(const glm::vec3& origin, const glm::quat& direction, uint32 spaceShipId, uint64 currentTimeMillis)
 {
-    Game::Laser* laser = new Game::Laser(this->nextLaserId, currentTimeMillis, currentTimeMillis + this->laserMaxTime, origin, orientation, spaceShipId);
+    Game::Laser* laser = new Game::Laser(this->nextLaserId, currentTimeMillis, currentTimeMillis + this->laserMaxTime, origin, direction, spaceShipId);
     this->lasers.push_back(laser);
     this->nextLaserId++;
 
